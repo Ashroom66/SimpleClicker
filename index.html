@@ -1,0 +1,326 @@
+<html>
+    <!--
+        説明
+        自作で自由に作成する課題。
+
+        今回は簡素なクッキークリッカー系のスクリプトを作成した。
+
+        画面左上にポイントがformのinput(text)オブジェで表示され、
+        真ん中のボタンを押すとこれがカウントされる。
+
+        集まったポイントを消費することで毎秒自動でクリックしてくれる装置や毎秒一定ポイント貯まるアイテムが手に入る。
+        購入(アップグレード)には倍率が設定されており、アップグレードする度にアップグレードに必要なポイントが増えていく。
+
+        また、"クッキー"クリッカー風ゲームなのでデータはCookieに保存するようにした。
+
+        初期化(CLEAR DATA)ボタンを押すとセーブデータが消え、また初めからやり直すことができる。
+
+        閉じるボタン(CLOSE GAMEボタン)は他ページにも記した通り、cWindow_myself関数を呼び出して自身のページを閉じる(このボタンは別ページからjavascriptを用いて表示した時のみ機能する)
+
+        【form】
+        formは基本的に表示用として使用した。
+        <form> status
+            ┗<input>[text] points
+
+        <form> optionsForm
+            ┣<input>[text] item0_number
+            ┣<input>[text] item0_cost
+            ┣<input>[button] item0_upgrade
+            ┣<input>[text] item1_number
+            ┣<input>[text] item1_cost
+            ┣<input>[button] item1_upgrade
+            ┣<input>[text] item2_number
+            ┣<input>[text] item2_cost
+            ┗<input>[button] item2_upgrade
+
+        upgrade用のbuttonはscriptで緑色と赤色の2種の表示を制御し、アップグレードが可能であれば緑、アップグレード不可(=ポイント不足)ならば赤で表示されるようにした。
+
+
+        【ボタン】
+        ボタンはCSSでデザインした。画面中央に設置する、押すとポイントが貯まるメインのボタン、
+        アップグレード用に2種類のボタンデザインを用意した。
+        また、ボタンデザインは外部サイトを参考に、押すとボタン自体が少し沈んでより押しごたえがあるものとした。
+
+        【レイアウト】
+        画面上部にメイン画面として押すとポイントの貯まるボタンと現在の所持ポイント表示、
+        画面下部にアップグレード画面としてそれぞれのアイテムの表を用意した。
+        また、閉じるボタンは画面左上に配置した。
+
+
+        【システム】
+        データは現在の所持ポイント(points)とオプションのステータス(options)。
+        ボタンを押すとfunction clickedが呼び出され、item0の値を元にfunction addPointsが呼び出される。
+        addPoints関数ではポイントの加算・更新の他、各アップグレードボタンのアップグレード可否をチェックし、必要に応じてボタンの表示を変更する。
+
+        また、item1, 2では自動的にポイントの加算が行われるが、これはsetIntervalで1秒おきに実行される変数(関数)genPointsからaddPointsを呼び出す事で実現する。setIntervalはbodyタグに埋め込み、initialize関数の実行後に動作させるようにした。
+
+        アイテムのアップグレードボタンは所持ポイントに関わらず押すことでupgrade関数を呼び出す。
+        その為、所持ポイントと必要ポイントのチェックはこの関数で行い、アップグレード後ボタンの表示更新を行う。
+
+        データの保存は課題2-6で作成したCookieに関するコードを利用して、initialize関数の中で行う。
+
+        データ消去(clearData関数)はCookieを初期化した後initialize関数を呼び出すことで実現した。
+
+    -->
+    <head>
+        <title>SimpleClicker</title>
+        <style type="text/css"> 
+            /* ↑CSSの記述 学び直した。(参考：　http://www.htmq.com/csskihon/004.shtml　) */
+            /* 参考・ボタンのデザイン：　https://saruwakakun.com/html-css/reference/buttons#section7　 */
+            /* 参考・CSSについて色々：　http://www.tohoho-web.com/css/　 */
+            .green_button {
+                cursor:pointer;
+                display: inline-block;
+                padding: 0.5em 1em;
+                text-decoration: none;
+                font-weight: bold;
+                border-radius: 6px;
+                color: rgb(0, 255, 0);
+                border: solid 1px rgb(0, 255, 0);
+                background-color: #000;
+                box-shadow: 0px 2px 2px rgba(255, 0, 255, 0.3);
+                border-bottom: solid 3px rgb(0, 128, 0);
+            }
+            .green_button:active {
+                -webkit-transform: translateY(4px);
+                transform:translateY(4px);
+                box-shadow: 0px 0px 1px rgba(255, 0, 255, 0.2);
+                border-bottom: solid 1px rgb(0, 128, 0);
+            }
+            .big_button {
+                cursor:pointer;
+                display: inline-block;
+                padding: 0.5em 1em;
+                text-decoration: none;
+                font-weight: bold;
+                font-size: xx-large;
+                border-radius: 14px;
+                color: rgb(0, 255, 0);
+                background-color: #000;
+                border: solid 3px rgb(0, 255, 0);
+                box-shadow: 0px 0px 5px 5px rgba(255, 0, 255, 0.3);
+            }
+            .big_button:active {
+                -webkit-transform: translateY(4px);
+                transform:translateY(4px);
+                box-shadow: 0px 0px 1px rgba(255, 0, 255, 0.2);
+                border-bottom: solid 1px rgb(0, 128, 0);
+            }
+            .red_button {
+                cursor:pointer;
+                display: inline-block;
+                padding: 0.5em 1em;
+                text-decoration: none;
+                font-weight: bold;
+                border-radius: 6px;
+                color: rgb(255, 0, 0);
+                background-color: #000;
+                border: solid 1px rgb(255, 0, 0);
+                box-shadow: 0px 2px 2px rgba(0, 255, 255, 0.3);
+                border-bottom: solid 3px rgb(128, 0, 0);
+            }
+            .red_button:active {
+                -webkit-transform: translateY(4px);
+                transform:translateY(4px);
+                box-shadow: 0px 0px 1px rgba(0, 255, 255, 0.2);
+                border-bottom: solid 1px rgb(128, 0, 0);
+            }
+            body {
+                color: rgb(0, 255, 0);  /* 文字色 */
+            }
+            input {
+                text-align: right;
+                color: rgb(0, 255, 0);
+                font-size: large;
+                background-color: #000;
+                border: none;
+            }
+            hr {
+                color: rgb(0, 255, 0);
+            }
+            table {
+                border-collapse: collapse;
+            }
+            td {
+                border: solid 1px;
+                padding: 0.5em;
+                text-align: center;
+            }
+            th {
+                border: solid 1px;
+                padding: 0.5em;
+                background-color: rgb(0, 32, 0);
+                text-align: center;
+                font-size: x-large;
+            }
+        </style>
+        <script type="text/javascript">
+            <!--
+                var options = new Array(3);
+                for (var i=0; i<3; i++) {options[i] = new Array(3).fill(0);}
+                var myPoints;   // 二次元配列[item, item, item, ...]
+                // item:3要素 [所持数, 所要ポイント, 倍率]
+
+                // 自動生産アイテム用
+                var gen_value = 30;  // generate 3 points/sec
+                var gen_value_magnification = 0.2;  // generate points: gen_value*item2_numbers + gen_value_magnification*item0_numbers
+
+                function initialize() {
+                    // called onload body
+                    // init status
+
+                    if(document.cookie == "") {
+                        // 初訪問
+                        var ppc = [1, 10, 1.2];     // item0: Points Per Click
+                        var ac = [0, 100, 1.3];     // item1: Auto Clicker
+                        var md = [0, 200, 1.5];     // item2: Point Generator
+                        options[0] = ppc;
+                        options[1] = ac;
+                        options[2] = md;
+                        myPoints = 0;
+                    } else {
+                        // Cookieから読み込み
+                        loadData();
+                    }
+
+                    // update texts/button classes
+                    addPoints(0);
+                    document.optionsForm.item0_number.value = options[0][0].toLocaleString();
+                    document.optionsForm.item0_cost.value = options[0][1].toLocaleString();
+                    document.optionsForm.item1_number.value = options[1][0].toLocaleString();
+                    document.optionsForm.item1_cost.value = options[1][1].toLocaleString();
+                    document.optionsForm.item2_number.value = options[2][0].toLocaleString();
+                    document.optionsForm.item2_cost.value = options[2][1].toLocaleString();
+
+                    
+                }
+
+                function addPoints(pt) {
+                    // add points, update texts'n buttons
+                    myPoints =  parseInt(myPoints+pt);
+
+                    // 3桁のカンマ区切りで出力(参考：　https://www.yoheim.net/blog.php?q=20190702　)
+                    document.status.points.value = myPoints.toLocaleString();
+                    var of = document.optionsForm;
+                    // (参考・クラス属性の動的変更：　https://www.ipentec.com/document/javascript-change-css-class　)
+                    of.item0_upgrade.className = (myPoints >= options[0][1])? "green_button" : "red_button";
+                    of.item1_upgrade.className = (myPoints >= options[1][1])? "green_button" : "red_button";
+                    of.item2_upgrade.className = (myPoints >= options[2][1])? "green_button" : "red_button";
+                    saveData();
+                }
+                function upgrade(item){
+                    // cost check, upgrade, calc next cost, output
+                    if(myPoints < options[item][1]) { return; } // ポイント不足
+                    
+                    addPoints(parseInt(-1 * options[item][1]));    // ポイント計算、表示更新(ボタン)
+                    options[item][0] += 1;
+                    options[item][1] = parseInt(options[item][1] * options[item][2]);
+
+                    // ↓表示更新(optionsForm.texts)
+                    if(item==0) {
+                        document.optionsForm.item0_number.value = options[item][0].toLocaleString();
+                        document.optionsForm.item0_cost.value = options[item][1].toLocaleString();
+                    }
+                    if(item==1) {
+                        document.optionsForm.item1_number.value = options[item][0].toLocaleString();
+                        document.optionsForm.item1_cost.value = options[item][1].toLocaleString();
+                    }
+                    if(item==2) {
+                        document.optionsForm.item2_number.value = options[item][0].toLocaleString();
+                        document.optionsForm.item2_cost.value = options[item][1].toLocaleString();
+                    }
+                    saveData();
+                }
+                function clicked() {
+                    // called when clicked the button or genpoints(item1)
+                    // cf item0, then call addPoints
+                    addPoints(options[0][0]);
+                }
+                var genPoints = function() {
+                    // check items and call addPoints()
+                    addPoints(options[0][0] * options[1][0]);
+                    addPoints(options[2][0] * gen_value + options[0][0] * gen_value_magnification);
+                }
+
+                function cWindow_myself() {
+                    window.close();
+                }
+
+                /* Cookie */
+                
+                function saveData() {
+                    setinCookie("points", myPoints);
+                    for(var i=0; i<3; i++) {
+                        for(var j=0; j<3; j++) {
+                            setinCookie("i" + i + j, options[i][j]);
+                        }
+                    }
+                }
+                function loadData() {
+                    myPoints = parseInt(readValuefromCookie("points"));
+                    for(var i=0; i<3; i++) {
+                        for(var j=0; j<3; j++) {
+                            if(j!=2) {
+                                options[i][j] = parseInt(readValuefromCookie("i" + i + j));
+                            } else {
+                                // (参考・parseFloatの存在：　https://developer.mozilla.org/ja/docs/Web/JavaScript/Reference/Global_Objects/parseFloat　)
+                                options[i][j] = parseFloat(readValuefromCookie("i" + i + j));
+                            }
+                        }
+                    }
+                }
+                function clearData() {
+                    // (参考・Cookieの削除：　https://uxmilk.jp/24126　)
+                    var cData = document.cookie.split("; ");
+                    for(var c of cData) {
+                        var cAry = c.split("=");
+                        document.cookie = cAry[0] + "=; max-age=0";
+                    } 
+                    initialize();
+                }
+                // from kadai2-6.html
+                function setinCookie(key, valu) {  // 資料より借用。key:属性(旧attr), valu:値
+                    var cData = key + "=" + escape(valu) + ";";
+                    var presentDay = new Date();
+                    var dd = presentDay.getDate() + 7;
+                    presentDay.setDate(dd);
+                    var expTime = presentDay.toGMTString();
+                    document.cookie = cData + "expires=" + expTime;
+                }
+
+                function readValuefromCookie(key) {
+                    var cData = document.cookie.split("; ");    // key1=val1;␣key2=val2;␣…  →"";␣"で区切る
+                    for(var c of cData) {
+                        var cAry = c.split("=");
+                        if(cAry[0] == key) {
+                            // 発見
+                            return unescape(cAry[1]);
+                        }
+                    }
+                    console.log(key + " not found");
+                }
+
+            // -->
+        </script>
+    </head>
+
+    <body bgcolor="#000000" onload="initialize(); setInterval(genPoints, 1000)">
+        <form name="status">
+            現在：<input type="text" name="points" value="0" readonly> pt
+        </form>
+        <button onclick="cWindow_myself()" class="green_button">CLOSE GAME</button><br><br>
+        <button class="red_button" onclick="clearData()" style="position:absolute">CLEAR DATA</button>
+        <br><br><div style="text-align: center"><button class="big_button" onclick="clicked()">GET POINT(s)</button></div><br><br>
+        <form name="optionsForm" style="position:absolute;top:300px">
+            <hr>
+            <h1>Options</h1>
+            <table>
+                <tr><th>Name</th><th>Numbers</th><th>Upgrade</th><th>Cost</th></tr>
+                <tr><th style="text-align:left">Points per Click</th><td><input type="text" name="item0_number" value="" readonly></td><td><input type="button" name="item0_upgrade" class="green_button" onclick="upgrade(0)" value="UPGRADE"></td><td><input type="text" name="item0_cost" value="" readonly></td></tr>
+                <tr><th style="text-align:left">Auto Clicker</th><td><input type="text" name="item1_number" value="" readonly></td><td><input type="button" name="item1_upgrade" class="green_button" onclick="upgrade(1)" value="UPGRADE"></td><td><input type="text" name="item1_cost" value="" readonly></td></tr>
+                <tr><th style="text-align:left">Points Generator</th><td><input type="text" name="item2_number" value="" readonly></td><td><input type="button" name="item2_upgrade" class="green_button" onclick="upgrade(2)" value="UPGRADE"></td><td><input type="text" name="item2_cost" value="" readonly></td></tr>
+            </table>
+        </form>
+        
+    </body>
+</html>

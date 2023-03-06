@@ -1,1 +1,2 @@
 # SimpleClicker
+JavaScriptを利用して作ったシンプルなクッキークリッカー系ゲーム
